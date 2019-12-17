@@ -6,10 +6,16 @@ import requests
 from config import BotConfig
 from threading import Timer
 
+RESTART_TIMEOUT = 20
+CHECK_RATE_TIMEOUT = 10*60
+
 
 class NullObject(object):
     def __init__(self):
         pass
+
+    def __repr__(self):
+        return "It's universal object, that can be used instead of any other object"
 
     def __getattr__(self, item):
         print("relay request {}".format(item))
@@ -17,6 +23,7 @@ class NullObject(object):
 
 
 def get_relay_obj():
+    """Check current platform type, return NullObject for all platform except armv7l"""
     if platform.machine() == 'armv7l':
         import relay_control
         return relay_control.Relay()
@@ -31,12 +38,10 @@ def delayed_start(bot, message, relay):
 
 def check_hashrate(bot, message, wallet, relay):
     print("check_hashrate")
-    Timer(20 * 60, check_hashrate, [bot, message]).start()
+    Timer(CHECK_RATE_TIMEOUT, check_hashrate, [bot, message]).start()
     URL = "https://api.nanopool.org/v1/eth/hashrate/" + wallet
     r = requests.get(url=URL)
     data = r.json()
-
-    print(data['data'])
 
     if data['data'] < 120:
         bot.send_message(message.chat.id, 'Hash rate is low: {}'.format(data['data']))
@@ -73,7 +78,7 @@ def main():
     def restart_command(message):
         relay.relay_off()
         bot.send_message(message.chat.id, 'System restart is in process')
-        Timer(20, delayed_start, [bot, message]).start()
+        Timer(RESTART_TIMEOUT, delayed_start, [bot, message]).start()
 
     @bot.message_handler(commands=['get_rate'])
     def get_rate_command(message):
